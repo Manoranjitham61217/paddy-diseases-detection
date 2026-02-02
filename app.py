@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 from model import predict_disease_with_gradcam  # or predict_disease_from_image
+from model import is_paddy_leaf
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -70,10 +71,36 @@ if img is not None:
     )
 
     if st.button("🔍 Detect Disease"):
+        
+        if img is None:
+            st.error("❌ No image found. Please upload or capture an image.")
+            st.stop()
+
+        st.write("🧪 Running leaf validation...")
+
+    # --- BASIC LEAF CHECK ---
+        if not is_paddy_leaf(img):
+            st.warning(
+                "⚠️ This image is not a paddy leaf.\n"
+                "Please upload a valid rice leaf image."
+            )
+            st.stop()
+
+    # --- MODEL PREDICTION ---
         with st.spinner("Analyzing the paddy leaf..."):
             output = predict_disease_with_gradcam(img)
 
-        st.markdown("---")
+
+        confidence = output.get("confidence", None)
+
+        if confidence is None:
+            st.error("❌ Model failed to produce confidence.")
+            st.stop()
+
+        if confidence < 0.75:
+            st.warning("⚠️ Low confidence prediction. Please upload a clearer paddy leaf image.")
+            st.stop()
+
 
         # ---------------- RESULT ----------------
         if output["status"] == "confident":
