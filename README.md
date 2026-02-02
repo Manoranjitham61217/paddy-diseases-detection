@@ -91,30 +91,30 @@ Only validated paddy leaf images are passed to the classifier.
 
 ## 6. Limitations
 
--The system is limited to paddy (rice) leaves only.
--Performance may degrade for:
-   -Very low-quality images
-   -Extreme lighting variations
--Other crop species are not supported in the current version.
+- The system is limited to paddy (rice) leaves only.
+- Performance may degrade for:
+   - Very low-quality images
+   - Extreme lighting variations
+- Other crop species are not supported in the current version.
 
 ---
 
 ## 7. Future Enhancements
 
--Add a dedicated “Not Paddy Leaf” class for stronger rejection.
--Extend the system to support multiple crop species.
--Convert the application into a mobile app using Flutter or Android.
--Integrate real-time disease monitoring and alerts.
--Deploy as a REST API for large-scale usage.
+- Add a dedicated “Not Paddy Leaf” class for stronger rejection.
+- Extend the system to support multiple crop species.
+- Convert the application into a mobile app using Flutter or Android.
+- Integrate real-time disease monitoring and alerts.
+- Deploy as a REST API for large-scale usage.
 
 ---
 
 ## 8. Use Cases
 
--Farmers for early disease detection
--Agricultural researchers and students
--Educational demonstrations of explainable AI
--Prototype for smart agriculture systems
+- Farmers for early disease detection
+- Agricultural researchers and students
+- Educational demonstrations of explainable AI
+- Prototype for smart agriculture systems
 
 ---
 
