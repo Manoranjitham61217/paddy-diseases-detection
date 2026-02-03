@@ -1,68 +1,90 @@
-import cv2
 import numpy as np
+import cv2
 import tensorflow as tf
 
-
-# Load model once
+# Load trained model
 model = tf.keras.models.load_model("rice_model.keras")
 
 CLASS_NAMES = ["BacterialBlight", "Blast", "BrownSpot"]
-CONF_THRESHOLD = 0.6
+
+IMG_SIZE = 224
+
+
+def preprocess_image(img):
+    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+    img = img / 255.0
+    return np.expand_dims(img, axis=0)
+
+
+def generate_gradcam(img_array, class_index):
+    last_conv_layer = None
+    for layer in reversed(model.layers):
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            last_conv_layer = layer.name
+            break
+
+    grad_model = tf.keras.models.Model(
+        [model.inputs],
+        [model.get_layer(last_conv_layer).output, model.output],
+    )
+
+    with tf.GradientTape() as tape:
+        conv_outputs, predictions = grad_model(img_array)
+        loss = predictions[:, class_index]
+
+    grads = tape.gradient(loss, conv_outputs)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+    conv_outputs = conv_outputs[0]
+
+    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
+    heatmap = np.maximum(heatmap, 0)
+    heatmap /= np.max(heatmap) + 1e-9
+
+    heatmap = cv2.resize(heatmap, (IMG_SIZE, IMG_SIZE))
+    heatmap = np.uint8(255 * heatmap)
+    return heatmap
+
 
 def predict_disease_with_gradcam(img):
-    img = cv2.resize(img, (224, 224))
-    img = img / 255.0
-    img_array = np.expand_dims(img, axis=0)
+    img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+    img_array = preprocess_image(img)
 
-    preds = model.predict(img_array)
+    preds = model.predict(img_array)[0]
     confidence = float(np.max(preds))
-    idx = int(np.argmax(preds))
+    entropy = float(-np.sum(preds * np.log(preds + 1e-9)))
 
-    if confidence < CONF_THRESHOLD:
+    # -------- Soft validation (IMPORTANT) --------
+    is_uncertain = False
+
+    if confidence < 0.20:
+        is_uncertain = True
+
+    if entropy < 0.05:
+        is_uncertain = True
+
+    # Geometry warning (NOT rejection)
+    geometry_warning = False
+    h, w, _ = img_resized.shape
+    if h / (w + 1e-5) < 1.0:
+        geometry_warning = True
+
+    if is_uncertain:
         return {
-            "status": "uncertain",
-            "confidence": confidence
+            "status": "not_paddy_leaf",
+            "confidence": confidence,
+            "entropy": entropy,
         }
+
+    class_index = np.argmax(preds)
+    disease = CLASS_NAMES[class_index]
+
+    heatmap = generate_gradcam(img_array, class_index)
 
     return {
         "status": "confident",
-        "prediction": CLASS_NAMES[idx],
-        "confidence": confidence
+        "prediction": disease,
+        "confidence": confidence,
+        "entropy": entropy,
+        "geometry_warning": geometry_warning,
+        "gradcam": heatmap,
     }
-
-
-def is_paddy_leaf(img):
-    img = cv2.resize(img, (224, 224))
-
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-    lower_green = np.array([25, 40, 40])
-    upper_green = np.array([85, 255, 255])
-
-    green_mask = cv2.inRange(hsv, lower_green, upper_green)
-    green_ratio = np.sum(green_mask > 0) / green_mask.size
-
-    if green_ratio < 0.25:
-        return False
-
-    contours, _ = cv2.findContours(
-        green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
-
-    if len(contours) == 0:
-        return False
-
-    cnt = max(contours, key=cv2.contourArea)
-    area = cv2.contourArea(cnt)
-    x, y, w, h = cv2.boundingRect(cnt)
-
-    aspect_ratio = h / (w + 1e-5)
-
-    if area < 2000:
-        return False
-
-    if aspect_ratio < 1.8:
-        return False
-
-    return True
-
