@@ -28,6 +28,10 @@ def load_trained_model(model_path="rice_model.keras"):
 
 def predict_image(model, image):
     """Preprocesses and predicts the class of the input image."""
+    # ADDED: Convert image to RGB to handle PNG transparency (fixes the shape error)
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    
     img = image.resize((224, 224))
     img_array = img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
