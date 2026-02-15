@@ -29,7 +29,7 @@ The system classifies paddy leaf images into the following categories:
 - **Bacterial Blight**
 - **Blast**
 - **Brown Spot**
-- **Healthy Leaf**
+- **Non Paddy Objects**
 
 Images that do not belong to paddy leaves are automatically rejected.
 
@@ -101,7 +101,6 @@ Only validated paddy leaf images are passed to the classifier.
 
 ## 7. Future Enhancements
 
-- Add a dedicated “Not Paddy Leaf” class for stronger rejection.
 - Extend the system to support multiple crop species.
 - Convert the application into a mobile app using Flutter or Android.
 - Integrate real-time disease monitoring and alerts.
@@ -119,6 +118,9 @@ Only validated paddy leaf images are passed to the classifier.
 ---
 
 ## 9. Model UI
+<img width="1919" height="1022" alt="Screenshot 2026-02-15 201637" src="https://github.com/user-attachments/assets/320bc002-9d32-4c17-9af3-9b6d0158cec6" />
+<img width="1919" height="1079" alt="Screenshot 2026-02-15 201647" src="https://github.com/user-attachments/assets/3abd89c7-a710-46ef-ba26-775bc38dde37" />
+
 
 ## 10. Conclusion
 
