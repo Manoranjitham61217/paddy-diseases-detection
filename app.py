@@ -1,76 +1,63 @@
 import streamlit as st
-import cv2
-import numpy as np
-from model import predict_disease_with_gradcam
+from PIL import Image
+from model import load_trained_model, predict_image, DISEASE_INFO
 
-st.set_page_config(page_title="Paddy Disease Finder", layout="centered")
+# Page Configuration
+st.set_page_config(page_title="Paddy Health Guard", page_icon="🌾")
 
-st.title("🌾 Paddy Disease Finder")
-st.write("Upload a paddy (rice) leaf image to detect disease.")
+st.title("🌾 Paddy Leaf Disease Detector")
+st.markdown("Identify paddy diseases instantly using AI.")
 
-uploaded_file = st.file_uploader(
-    "Upload a paddy leaf image",
-    type=["jpg", "jpeg", "png"]
-)
+# Load Model with caching to prevent slow reloads
+@st.cache_resource
+def get_model():
+    return load_trained_model("rice_model.keras")
 
-if uploaded_file:
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+try:
+    model = get_model()
+except Exception as e:
+    st.error(f"Error loading model: {e}. Make sure 'rice_model.keras' is in the same folder.")
+    st.stop()
 
-    st.image(img_rgb, caption="Selected Paddy Leaf Image", use_container_width=True)
+# Input Selection
+option = st.selectbox("How would you like to provide the image?", 
+                      ("Upload from Gallery", "Use Camera"))
 
-    if st.button("🔍 Detect Disease"):
-        st.write("✏️ Running leaf validation...")
+image = None
 
-        output = predict_disease_with_gradcam(img)
+if option == "Upload from Gallery":
+    # FIXED: Changed from file_file_uploader to file_uploader
+    uploaded_file = st.file_uploader("Select an image...", type=["jpg", "jpeg", "png"])
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+else:
+    camera_file = st.camera_input("Snap a photo of the leaf")
+    if camera_file:
+        image = Image.open(camera_file)
 
-        # ❌ Not a paddy leaf
-        if output["status"] == "not_paddy_leaf":
-            st.error("❌ This is not a paddy (rice) leaf.")
-            st.stop()
+# Prediction Result
+if image:
+    st.image(image, caption="Captured Image", use_container_width=True)
+    
+    if st.button("Analyze Leaf"):
+        with st.spinner('AI is analyzing...'):
+            label, confidence = predict_image(model, image)
+        
+        # Display Logic
+        if label == "Non_Paddy":
+            st.error(f"Result: {label.replace('_', ' ')}")
+            st.warning("⚠️ This does not appear to be a paddy leaf. Our AI only analyzes paddy plants. Please try a different photo.")
+        else:
+            st.success(f"Prediction: **{label}**")
+            st.info(f"Confidence Level: **{confidence:.2%}**")
+            
+            # Show Treatment Details
+            info = DISEASE_INFO.get(label)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("💊 Treatment")
+                st.write(info["treatment"])
+            with col2:
+                st.subheader("🛡️ Prevention")
+                st.write(info["prevention"])
 
-        # ⚠️ Geometry warning
-        if output.get("geometry_warning"):
-            st.warning("⚠️ Leaf appears partially cropped. Prediction may be affected.")
-
-        # ✅ Disease result
-        st.success(f"🌿 Disease Detected: {output['prediction']}")
-        st.write(f"**Confidence:** {output['confidence']:.2f}")
-
-        # Grad-CAM
-        heatmap = output["gradcam"]
-        heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        img_resized = cv2.resize(img, (224, 224))
-        overlay = cv2.addWeighted(img_resized, 0.6, heatmap_color, 0.4, 0)
-
-
-        st.subheader("🔍 Grad-CAM Explanation")
-        st.image(
-            cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB),
-            use_container_width=True
-        )
-
-        # Treatments
-        st.subheader("🌱 Treatment & Improvement Suggestions")
-
-        treatments = {
-            "BacterialBlight": [
-                "Use disease-resistant varieties",
-                "Avoid excess nitrogen fertilizers",
-                "Apply copper-based bactericides"
-            ],
-            "Blast": [
-                "Apply fungicides like Tricyclazole",
-                "Ensure proper field drainage",
-                "Avoid overcrowding plants"
-            ],
-            "BrownSpot": [
-                "Apply balanced fertilizers",
-                "Use fungicides like Mancozeb",
-                "Improve soil nutrient levels"
-            ],
-        }
-
-        for tip in treatments.get(output["prediction"], []):
-            st.write("✔️", tip)
